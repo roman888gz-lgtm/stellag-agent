@@ -1,4 +1,3 @@
-cat > /root/agent2.py << 'ENDOFFILE'
 import anthropic
 import urllib.request, urllib.parse, json, time
 
@@ -6,7 +5,7 @@ CLIENT_ID = "mSDgjGmCZziVZHk2EtqX"
 CLIENT_SECRET = "r0Vwf5VSMLB3aPqTYkARZ9hadcAs4SwrGYY0HtnX"
 client = anthropic.Anthropic(api_key="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")
 
-SCENARIO = """Ty menedzher po prodazham stellazhej GARANT-STELLAG. Otvechaj TOLKO na russkom yazyke. KATALOG: LAYT STO 60-120kg. LF 180-220kg. SGRF 300kg. SGR OTs 350-550kg. STSENARIY: 1-Privetstvie 2-Utochni razmery 3-Nagruzku 4-Kol-vo polok 5-Tsena i dostavka. VOZRAZHENIYA: Dorogo-sprosi byudzhet. Podumayu-zafiksiruy tsenu na 3 dnya. Deshevle-metall 2mm garantiya 1 god. Pri torge ili prosby skidki otvechaj: Peredayu vas menedzheru, on svyazhetsya s vami. ADRESA: Moskva 1y Rizhskiy per 2G. Samovyvoz PSK Sergeevo g.Chekhov. Dostavka 1-2 dnya. DOVERIE: s 2015 goda, 3000+ klientov, garantiya 1 god, oplata posle polucheniya. Pravila: kratko, odin vopros za raz."""
+SCENARIO = """Ty menedzher po prodazham stellazhej GARANT-STELLAG. Otvechaj TOLKO na russkom yazyke. KATALOG: LAYT STO 60-120kg. LF 180-220kg. SGRF 300kg. SGR OTs 350-550kg. STSENARIY: 1-Privetstvie 2-Utochni razmery 3-Nagruzku 4-Kol-vo polok 5-Tsena i dostavka. VOZRAZHENIYA: Dorogo-sprosi byudzhet. Podumayu-zafiksiruy tsenu na 3 dnya. Pri torge ili prosby skidki: Peredayu vas menedzheru, on svyazhetsya s vami. ADRESA: Moskva 1y Rizhskiy per 2G. Samovyvoz PSK Sergeevo g.Chekhov. Dostavka 1-2 dnya. DOVERIE: s 2015 goda, 3000+ klientov, garantiya 1 god, oplata posle polucheniya. Pravila: kratko, odin vopros za raz."""
 
 def get_token():
     data = urllib.parse.urlencode({"grant_type":"client_credentials","client_id":CLIENT_ID,"client_secret":CLIENT_SECRET,"scope":"messenger:read messenger:write"}).encode()
@@ -29,7 +28,7 @@ def get_msgs(token,uid,cid):
     try:
         with urllib.request.urlopen(urllib.request.Request(f"https://api.avito.ru/messenger/v3/accounts/{uid}/chats/{cid}/messages/",headers={"Authorization":f"Bearer {token}"})) as r:
             data = json.loads(r.read())
-            print(f"msgs type: {type(data)}, keys: {list(data.keys()) if isinstance(data,dict) else 'list'}")
+            print(f"msgs type: {type(data).__name__}")
             if isinstance(data, list):
                 return data
             return data.get("messages", data.get("items", []))
@@ -58,3 +57,22 @@ def run():
         for chat in chats:
             msgs=get_msgs(token,uid,chat["id"])
             if not msgs: continue
+            last=msgs[-1]
+            if int(time.time())-last.get("created",0)>86400: continue
+            if last.get("direction")=="in" and last.get("type")=="text":
+                text=last.get("content",{}).get("text","")
+                if not text: continue
+                print(f"Klient: {text}")
+                ans=reply(msgs[:-1],text)
+                print(f"Agent: {ans}")
+                send(token,uid,chat["id"],ans)
+                print("Otpravleno!")
+    except Exception as e:
+        import traceback
+        print(f"Oshibka: {e}")
+        traceback.print_exc()
+
+print("Agent zapuschen.")
+while True:
+    run()
+    time.sleep(3)
